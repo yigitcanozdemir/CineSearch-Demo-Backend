@@ -57,8 +57,19 @@ class RecommendationEngine:
                 ],
                 response_format=Features,
             )
-            return response.choices[0].message.parsed
+            
+            
+            response_model = response.choices[0].message.parsed
+
+            print(type(response_model))
+            print(response_model.model_dump_json(indent=2))
+            print(f"✅ Parsed features: {response_model}")
+            return response_model
+        
+        
+        
         except Exception as e:
+            print(f"❌ Error parsing user query: {str(e)}")
             return Features(
                 movie_or_series="both",
                 genres=[],

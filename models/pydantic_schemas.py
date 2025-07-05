@@ -16,7 +16,7 @@ class Features(BaseModel):
     themes: list[str] = Field(
         description="Actual thematic content (not quality descriptors)"
     )
-    date_range: list[int] = Field(description="Date range [min_year, max_year]")
+    date_range: list[int] = Field(description="Date range [min_year, max_year] (note: max_year is 2025)")
     negative_keywords: list[str] = Field(description="List of negative keywords")
     production_region: list[str] = Field(description="Production region")
     min_rating: Optional[float] = Field(
