@@ -107,7 +107,7 @@ ipython_config.py
 
 # PEP 582
 __pypackages__/
-
+.gradio/
 # Celery stuff
 celerybeat-schedule
 celerybeat.pid
@@ -160,5 +160,4 @@ cython_debug/
 *.rdb
 
 # Exclude trained models
-/models/
 =*.0*
