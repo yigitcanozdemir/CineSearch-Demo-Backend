@@ -6,7 +6,7 @@ from models.pydantic_schemas import Features
 from components.similarity import SimilarityCalculator
 from components.filters import MovieFilter
 from sentence_transformers import SentenceTransformer
-
+from components.tmdb_api import TMDBApi
 
 class RecommendationEngine:
     def __init__(self):
@@ -19,6 +19,7 @@ class RecommendationEngine:
 
         self.similarity_calc = SimilarityCalculator(self.model)
         self.filter = MovieFilter()
+        self.tmdb_api = TMDBApi()
 
         print(f"✅ Recommendation engine initialized with {len(self.data)} items.")
 
@@ -33,8 +34,17 @@ class RecommendationEngine:
             filtered_data = self.filter.apply_filters(self.data, features)
 
             search_results = self.similarity_calc.calculate_similarity(
-                user_query, filtered_data, top_k
+                features.themes, filtered_data, top_k
             )
+            if search_results["results"]:
+                    print(f"🔍 First result keys: {search_results['results'][0].keys()}")
+                    
+                    for i, result in enumerate(search_results["results"]):
+                        print(f"🔍 Result {i}: tconst = {result.get('tconst', 'NOT FOUND')}")
+                        
+                    search_results["results"] = self.tmdb_api.get_multiple_posters_by_imdb(
+                        search_results["results"]
+                    )
 
             formatted_results = self._format_results(search_results)
 
@@ -44,14 +54,13 @@ class RecommendationEngine:
             return f"❌ Error: {str(e)}", None
 
     def _parse_user_query(self, query: str) -> Features:
-        """GPT ile kullanıcı sorgusu parse et"""
         try:
             response = self.client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an AI that converts user requests into structured movie/TV-series features. Be smart about interpreting user preferences.",
+                        "content": "You are an AI that converts user requests into structured movie/TV-series features. ONLY extract genres that are explicitly mentioned by the user. Do not infer or add additional genres unless clearly stated.",
                     },
                     {"role": "user", "content": query},
                 ],
@@ -127,5 +136,5 @@ class RecommendationEngine:
                     "Overview": result["overview"],
                 }
             )
-
+        print(df_data)
         return pd.DataFrame(df_data)

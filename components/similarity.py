@@ -22,7 +22,7 @@ class SimilarityCalculator:
             }
 
         start_time = time.time()
-
+        print(f"🔍 Calculating similarity for query: {query}")
         query_embedding = self.model.encode([query])
         query_embedding = torch.tensor(query_embedding, dtype=torch.float32)
 
@@ -35,7 +35,7 @@ class SimilarityCalculator:
         similarities = similarities[0]
 
         hybrid_scores = self._calculate_hybrid_score(
-            similarities, filtered_data, similarity_weight=0.6, rating_weight=0.4
+            similarities, filtered_data, similarity_weight=0.8, rating_weight=0.2
         )
 
         top_indices = (
@@ -50,6 +50,7 @@ class SimilarityCalculator:
             row = filtered_data.iloc[idx]
 
             result = {
+                "tconst": row["tconst"],
                 "title": row["primaryTitle"],
                 "type": row["titleType"],
                 "year": row["startYear"],
@@ -82,8 +83,8 @@ class SimilarityCalculator:
         self,
         similarities: torch.Tensor,
         data: pd.DataFrame,
-        similarity_weight: float = 0.6,
-        rating_weight: float = 0.4,
+        similarity_weight: float = 0.8,
+        rating_weight: float = 0.2,
     ) -> torch.Tensor:
 
         sim_normalized = (similarities - similarities.min()) / (

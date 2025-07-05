@@ -39,7 +39,9 @@ GENRE_LIST = Literal[
 
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
+    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+    TMDB_BASE_URL = "https://api.themoviedb.org/3"
+    TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
     EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
     DATA_FILE = "data/demo_data.parquet"
 
