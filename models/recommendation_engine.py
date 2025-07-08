@@ -8,6 +8,7 @@ from components.filters import MovieFilter
 from sentence_transformers import SentenceTransformer
 from components.tmdb_api import TMDBApi
 
+
 class RecommendationEngine:
     def __init__(self):
         self.config = Config()
@@ -36,16 +37,6 @@ class RecommendationEngine:
             search_results = self.similarity_calc.calculate_similarity(
                 features.themes, filtered_data, top_k
             )
-            if search_results["results"]:
-                    print(f"🔍 First result keys: {search_results['results'][0].keys()}")
-                    
-                    for i, result in enumerate(search_results["results"]):
-                        print(f"🔍 Result {i}: tconst = {result.get('tconst', 'NOT FOUND')}")
-                        
-                    search_results["results"] = self.tmdb_api.get_multiple_posters_by_imdb(
-                        search_results["results"]
-                    )
-
             formatted_results = self._format_results(search_results)
 
             return formatted_results, self._create_results_dataframe(search_results)
@@ -66,17 +57,13 @@ class RecommendationEngine:
                 ],
                 response_format=Features,
             )
-            
-            
+
             response_model = response.choices[0].message.parsed
 
             print(type(response_model))
             print(response_model.model_dump_json(indent=2))
-            print(f"✅ Parsed features: {response_model}")
             return response_model
-        
-        
-        
+
         except Exception as e:
             print(f"❌ Error parsing user query: {str(e)}")
             return Features(
@@ -125,6 +112,7 @@ class RecommendationEngine:
         for result in search_results["results"]:
             df_data.append(
                 {
+                    "ImdbId": result["tconst"],
                     "Title": result["title"],
                     "Type": result["type"],
                     "Year": result["year"],
