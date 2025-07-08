@@ -50,6 +50,7 @@ class SimilarityCalculator:
             row = filtered_data.iloc[idx]
 
             result = {
+                "tconst": row["tconst"],
                 "title": row["primaryTitle"],
                 "type": row["titleType"],
                 "year": row["startYear"],

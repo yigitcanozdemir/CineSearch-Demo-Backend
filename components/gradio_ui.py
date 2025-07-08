@@ -1,46 +1,50 @@
 import gradio as gr
+from components.imdb_poster import get_imdb_poster
+
+
+def get_multiple_imdb_posters(imdb_ids):
+    posters = []
+    for imdb_id in imdb_ids:
+        poster_url = get_imdb_poster(imdb_id)
+        print(f"IMDB ID: {imdb_id}, Poster URL: {poster_url}")
+        posters.append({"tconst": imdb_id, "poster_url": poster_url})
+    return posters
 
 
 def create_interface(engine):
-    def get_recommendations_text(query):
-        """Wrapper function to safely get only the text result"""
+    def chat_function(message, history):
+        if not message:
+            return history, "", []
+
         try:
-            result = engine.get_recommendations(query)
-            if isinstance(result, tuple) and len(result) >= 1:
-                return result[0]
-            else:
-                return str(result)
+            result = engine.get_recommendations(message)
+            imdb_ids = []
+            df = result[1]
+            if isinstance(result, tuple) and len(result) > 1:
+                if hasattr(result[1], "columns") and "ImdbId" in result[1].columns:
+                    imdb_ids = result[1]["ImdbId"].tolist()
+
+            posters = get_multiple_imdb_posters(imdb_ids)
+
+            thumbnails = [p["poster_url"] for p in posters if p["poster_url"]]
+
+            response_text = result[0] if isinstance(result, tuple) else str(result)
+            history.append([message, response_text])
+
+            return history, "", thumbnails
+
         except Exception as e:
-            return f"❌ Error: {str(e)}"
+            history.append([message, f"❌ Error: {str(e)}"])
+            return history, "", []
 
-    with gr.Blocks(
-        theme=gr.themes.Soft(), title="TV-Series and Movie Recommend"
-    ) as demo:
-        gr.Markdown("# 🎬 TV-Series and Movie Recommend")
+    with gr.Blocks() as demo:
+        with gr.Column():
+            chatbot = gr.Chatbot(height=600)
+            gallery = gr.Gallery(
+                label="Posters", show_label=False, columns=5, height=400
+            )
+            msg = gr.Textbox(placeholder="Enter your query", scale=1)
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                query_input = gr.Textbox(
-                    label="What you want to watch?",
-                    placeholder="Define your preferences as detailed as possible.",
-                    lines=3,
-                )
-
-                search_btn = gr.Button("🔍 Search", variant="primary")
-
-            with gr.Column(scale=2):
-                results_text = gr.Textbox(
-                    label="Recommended Movies and TV-Series",
-                    lines=20,
-                    max_lines=25,
-                    show_copy_button=True,
-                    interactive=False,
-                )
-
-        search_btn.click(
-            fn=get_recommendations_text,
-            inputs=[query_input],
-            outputs=[results_text],
-        )
+        msg.submit(chat_function, [msg, chatbot], [chatbot, msg, gallery])
 
     return demo
