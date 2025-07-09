@@ -1,50 +1,52 @@
 import gradio as gr
+from models.recommendation_engine import RecommendationEngine
 from components.imdb_poster import get_imdb_poster
 
 
-def get_multiple_imdb_posters(imdb_ids):
-    posters = []
-    for imdb_id in imdb_ids:
-        poster_url = get_imdb_poster(imdb_id)
-        print(f"IMDB ID: {imdb_id}, Poster URL: {poster_url}")
-        posters.append({"tconst": imdb_id, "poster_url": poster_url})
-    return posters
+def get_recommendations_api(message, engine):
+    if not message:
+        return []
+
+    try:
+        result = engine.get_recommendations(message)
+        df = result[1] if isinstance(result, tuple) and len(result) > 1 else None
+        if df is None or df.empty:
+            return []
+
+        recommendations = []
+        for _, row in df.iterrows():
+            poster_url = get_imdb_poster(row["ImdbId"])
+            recommendations.append(
+                {
+                    "imdb_id": row["ImdbId"],
+                    "title": row["Title"],
+                    "year": row["Year"],
+                    "type": row["Type"],
+                    "rating": row["Rating"],
+                    "votes": row["Votes"],
+                    "genres": row["Genres"],
+                    "similarity": row["Similarity"],
+                    "hybrid_score": row["Hybrid Score"],
+                    "overview": row["Overview"],
+                    "poster_url": poster_url,
+                }
+            )
+        return recommendations
+    except Exception as e:
+        print(f"Error getting recommendations: {e}")
+        return []
 
 
 def create_interface(engine):
-    def chat_function(message, history):
-        if not message:
-            return history, "", []
+    def predict_wrapper(message):
+        return get_recommendations_api(message, engine)
 
-        try:
-            result = engine.get_recommendations(message)
-            imdb_ids = []
-            df = result[1]
-            if isinstance(result, tuple) and len(result) > 1:
-                if hasattr(result[1], "columns") and "ImdbId" in result[1].columns:
-                    imdb_ids = result[1]["ImdbId"].tolist()
-
-            posters = get_multiple_imdb_posters(imdb_ids)
-
-            thumbnails = [p["poster_url"] for p in posters if p["poster_url"]]
-
-            response_text = result[0] if isinstance(result, tuple) else str(result)
-            history.append([message, response_text])
-
-            return history, "", thumbnails
-
-        except Exception as e:
-            history.append([message, f"❌ Error: {str(e)}"])
-            return history, "", []
-
-    with gr.Blocks() as demo:
-        with gr.Column():
-            chatbot = gr.Chatbot(height=600)
-            gallery = gr.Gallery(
-                label="Posters", show_label=False, columns=5, height=400
-            )
-            msg = gr.Textbox(placeholder="Enter your query", scale=1)
-
-        msg.submit(chat_function, [msg, chatbot], [chatbot, msg, gallery])
-
-    return demo
+    iface = gr.Interface(
+        fn=predict_wrapper,
+        inputs=gr.Textbox(lines=1, placeholder="Type your movie query..."),
+        outputs=gr.JSON(label="Recommendations"),
+        title="Movie Recommendation API",
+        description="Type a movie or genre, get recommendations with posters.",
+        api_name="predict",
+    )
+    return iface

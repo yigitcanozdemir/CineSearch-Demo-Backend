@@ -9,7 +9,12 @@ def main():
 
     interface = create_interface(engine)
 
-    interface.launch(share=True, server_name="0.0.0.0", server_port=7860)
+    interface.launch(
+        share=True,
+        server_name="0.0.0.0",
+        server_port=7860,
+        show_api=True,
+    )
 
 
 if __name__ == "__main__":
