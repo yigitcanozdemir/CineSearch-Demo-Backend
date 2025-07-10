@@ -24,7 +24,7 @@ class RecommendationEngine:
 
         print(f"✅ Recommendation engine initialized with {len(self.data)} items.")
 
-    def get_recommendations(self, user_query: str, top_k: int = 10):
+    def get_recommendations(self, user_query: str, top_k: int = 40):
 
         if not user_query.strip():
             return "⚠️ Please enter some text.", None
@@ -33,10 +33,16 @@ class RecommendationEngine:
             features = self._parse_user_query(user_query)
 
             filtered_data = self.filter.apply_filters(self.data, features)
+            print(f"🔍 Filtered data contains {len(filtered_data)} items.")
+            query_input = features.themes + features.named_entities
+            if not query_input:
+                query_input = [user_query]
+            query_text = " ".join(query_input)
 
             search_results = self.similarity_calc.calculate_similarity(
-                features.themes, filtered_data, top_k
+                query_text, filtered_data, top_k
             )
+            print(f"🔍 Found {len(search_results['results'])} results.")
             formatted_results = self._format_results(search_results)
 
             return formatted_results, self._create_results_dataframe(search_results)
@@ -51,7 +57,28 @@ class RecommendationEngine:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an AI that converts user requests into structured movie/TV-series features. ONLY extract genres that are explicitly mentioned by the user. Do not infer or add additional genres unless clearly stated.",
+                        "content": """You are an AI that converts user requests into structured movie/TV-series features. ONLY extract genres that are explicitly mentioned by the user. Do not infer or add additional genres unless clearly stated.
+                        
+                        GENRE EXTRACTION RULES: 
+                        1. If user mentions a specific movie/show, include the ACTUAL genres of that content, if you do not sure include 1 or 2 genres.
+                        2. Prioritize the most common/popular genres for the referenced content
+                        3. If genres are mentioned directly select genre from the given list
+                        
+                        THEMES EXTRACTION RULES:
+                        1. Include 1–5 inferred narrative or stylistic themes (e.g., "vigilantes", "dark humor", "philosophical").
+                        2. ALWAYS include at least 1-3 meaningful `themes` even if the user query seems entity-focused.
+                        
+                        OTHER RULES:
+                        If the user query includes known franchises or brands (like "Marvel", "Harry Potter", "Studio Ghibli", "Christopher Nolan"), enrich the `themes` section to reflect the core narrative/stylistic elements of that universe.
+                        For example:
+                        - "Marvel" → themes like "superheroes", "team-based heroes", "interconnected universe", "identity crisis", "comic-book style", "good vs evil", "post-credit twists"
+                        - "Ghibli" → "magical realism", "nature vs industry", "childhood wonder", "silent protagonists"
+                        - "Tarantino" → "violence with style", "non-linear narrative", "retro soundtracks", "revenge", "pop culture references"
+
+                        Always include these enriched thematic representations when entity is present.
+                        Do NOT leave `themes` empty unless the query is entirely meaningless or gibberish.
+                        
+                        NOTE: If the user query different language, you should translate it to English first and parse.""",
                     },
                     {"role": "user", "content": query},
                 ],
@@ -117,6 +144,7 @@ class RecommendationEngine:
                     "Type": result["type"],
                     "Year": result["year"],
                     "Rating": result["rating"],
+                    "RuntimeMinutes": result["runtimeMinutes"],
                     "Votes": result["votes"],
                     "Genres": result["genres"],
                     "Similarity": f"{result['similarity_score']:.4f}",

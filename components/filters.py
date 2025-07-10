@@ -34,23 +34,71 @@ class MovieFilter:
             filtered_data = self._filter_by_negative_keywords(
                 filtered_data, features.negative_keywords
             )
-
-        if features.quality_level != "any":
-            filtered_data = self._filter_by_quality(
-                filtered_data, features.quality_level
+        if (
+            features.min_runtime_minutes is not None
+            or features.max_runtime_minutes is not None
+        ):
+            filtered_data = self._filter_by_runtime(
+                filtered_data,
+                features.min_runtime_minutes,
+                features.max_runtime_minutes,
             )
 
         return filtered_data
 
+    def _filter_by_runtime(
+        self, data: pd.DataFrame, min_runtime: int, max_runtime: int
+    ) -> pd.DataFrame:
+        if min_runtime is not None:
+            data = data[data["runtimeMinutes"].astype(int) >= min_runtime]
+        if max_runtime is not None:
+            data = data[data["runtimeMinutes"].astype(int) <= max_runtime]
+        return data
+
     def _filter_by_type(self, data: pd.DataFrame, movie_or_series: str) -> pd.DataFrame:
-        return data[data["titleType"] == movie_or_series]
+        if movie_or_series == "movie":
+            movie_types = ["movie", "tvMovie", "video"]
+            return data[data["titleType"].isin(movie_types)]
+        elif movie_or_series == "tvSeries":
+            series_types = ["tvSeries", "tvMiniSeries"]
+            return data[data["titleType"].isin(series_types)]
+        else:
+            all_types = ["movie", "tvSeries", "tvMiniSeries", "tvMovie", "video"]
+            return data[data["titleType"].isin(all_types)]
 
     def _filter_by_genres(self, data: pd.DataFrame, genres: List[str]) -> pd.DataFrame:
-        return data[
-            data["genres"].apply(
-                lambda g: any(genre in g.split(",") for genre in genres)
+        if not genres:
+            return data
+
+        def count_genre_matches(row_genres, target_genres):
+            if pd.isna(row_genres):
+                return 0
+
+            row_genre_list = [g.strip().lower() for g in row_genres.split(",")]
+            target_genre_list = [g.lower() for g in target_genres]
+
+            matches = sum(
+                1
+                for target_genre in target_genre_list
+                if any(target_genre in row_genre for row_genre in row_genre_list)
             )
-        ]
+            return matches
+
+        data_with_matches = data.copy()
+        data_with_matches["genre_matches"] = data_with_matches["genres"].apply(
+            lambda g: count_genre_matches(g, genres)
+        )
+
+        filtered_2plus = data_with_matches[data_with_matches["genre_matches"] >= 2]
+
+        if len(filtered_2plus) >= 20:
+            print(f"Using 2+ genre matches: {len(filtered_2plus)} results")
+            return filtered_2plus.drop("genre_matches", axis=1)
+
+        filtered_1plus = data_with_matches[data_with_matches["genre_matches"] >= 1]
+        print(f"Using 1+ genre matches: {len(filtered_1plus)} results")
+
+        return filtered_1plus.drop("genre_matches", axis=1)
 
     def _filter_by_date_range(
         self, data: pd.DataFrame, date_range: List[int]

@@ -11,7 +11,7 @@ class SimilarityCalculator:
         self.model = model
 
     def calculate_similarity(
-        self, query: str, filtered_data: pd.DataFrame, top_k: int = 10
+        self, query: str, filtered_data: pd.DataFrame, top_k: int = 40
     ) -> Dict[str, Any]:
         if filtered_data.empty:
             return {
@@ -55,13 +55,10 @@ class SimilarityCalculator:
                 "type": row["titleType"],
                 "year": row["startYear"],
                 "rating": row["averageRating"],
+                "runtimeMinutes": row.get("runtimeMinutes", None),
                 "votes": row["numVotes"],
                 "genres": row["genres"],
-                "overview": (
-                    row["overview"][:200] + "..."
-                    if len(row["overview"]) > 200
-                    else row["overview"]
-                ),
+                "overview": row["overview"],
                 "similarity_score": float(similarities[idx]),
                 "hybrid_score": float(hybrid_scores[idx]),
                 "final_score": float(row.get("final_score", 0)),
@@ -91,11 +88,6 @@ class SimilarityCalculator:
             similarities.max() - similarities.min() + 1e-8
         )
 
-        ratings = torch.tensor(data["averageRating"].values, dtype=torch.float32)
-        rating_normalized = (ratings - ratings.min()) / (
-            ratings.max() - ratings.min() + 1e-8
-        )
-
         if "finalScore" in data.columns:
             final_scores = torch.tensor(data["finalScore"].values, dtype=torch.float32)
             final_normalized = (final_scores - final_scores.min()) / (
@@ -103,13 +95,7 @@ class SimilarityCalculator:
             )
 
             hybrid_score = (
-                similarity_weight * sim_normalized
-                + rating_weight * rating_normalized
-                + 0.2 * final_normalized
-            )
-        else:
-            hybrid_score = (
-                similarity_weight * sim_normalized + rating_weight * rating_normalized
+                similarity_weight * sim_normalized + rating_weight * final_normalized
             )
 
         return hybrid_score
