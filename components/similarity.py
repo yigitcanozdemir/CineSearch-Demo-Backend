@@ -61,7 +61,8 @@ class SimilarityCalculator:
                 "overview": row["overview"],
                 "similarity_score": float(similarities[idx]),
                 "hybrid_score": float(hybrid_scores[idx]),
-                "final_score": float(row.get("final_score", 0)),
+                "final_score": row["finalScore"],
+                "genre_score": row["genreScore"],
             }
             results.append(result)
 
@@ -81,7 +82,8 @@ class SimilarityCalculator:
         similarities: torch.Tensor,
         data: pd.DataFrame,
         similarity_weight: float = 0.8,
-        rating_weight: float = 0.2,
+        rating_weight: float = 0.1,
+        genre_weight: float = 0.1,
     ) -> torch.Tensor:
 
         sim_normalized = (similarities - similarities.min()) / (
@@ -90,12 +92,19 @@ class SimilarityCalculator:
 
         if "finalScore" in data.columns:
             final_scores = torch.tensor(data["finalScore"].values, dtype=torch.float32)
+            genre_score = torch.tensor(data["genreScore"].values, dtype=torch.float32)
+            print(f"Genre scores: {genre_score}")
             final_normalized = (final_scores - final_scores.min()) / (
                 final_scores.max() - final_scores.min() + 1e-8
             )
+            print(f"Final scores normalized: {final_normalized}")
+            print(f"Final scores: {final_scores}")
 
+            total_weight = similarity_weight + rating_weight + genre_weight
             hybrid_score = (
-                similarity_weight * sim_normalized + rating_weight * final_normalized
-            )
+                similarity_weight * sim_normalized
+                + rating_weight * final_normalized
+                + genre_weight * genre_score
+            ) / total_weight
 
         return hybrid_score

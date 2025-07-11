@@ -20,19 +20,13 @@ class Features(BaseModel):
         description="Date range [min_year, max_year] (note: min_year is 1900, max_year is 2025)"
     )
     negative_keywords: list[str] = Field(description="List of negative keywords")
-    production_region: list[str] = Field(description="Production region")
-    min_rating: Optional[float] = Field(
-        description="Minimum rating expectation", default=None
-    )
-    min_votes: Optional[int] = Field(
-        description="Minimum number of votes", default=None
-    )
     min_runtime_minutes: Optional[int] = Field(
         description="Preferred minumum runtimes as minutes", default=None
     )
     max_runtime_minutes: Optional[int] = Field(
         description="Preferred maximum runtimes as minutes", default=None
     )
-    named_entities: Optional[list[str]] = Field(
+    named_entities: list[str] = Field(
         description="Franchise, brand or universe names (e.g. Marvel, Star Wars, Ghibli, Dune, Harry Potter, etc.)",
+        default_factory=list,
     )

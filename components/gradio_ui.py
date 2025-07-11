@@ -30,6 +30,8 @@ def get_recommendations_api(message, engine):
                     "hybrid_score": row["Hybrid Score"],
                     "overview": row["Overview"],
                     "poster_url": poster_urls[idx],
+                    "final_score": row["Final Score"],
+                    "genre_score": row["Genre Score"],
                 }
             )
 

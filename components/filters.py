@@ -17,27 +17,21 @@ class MovieFilter:
             )
 
         if features.genres:
-            filtered_data = self._filter_by_genres(filtered_data, features.genres)
+            filtered_data["genreScore"] = filtered_data["genres"].apply(
+                lambda g: self.calculate_genre_score(g, features.genres or [])
+            )
 
         if features.date_range:
             filtered_data = self._filter_by_date_range(
                 filtered_data, features.date_range
             )
 
-        if features.min_rating is not None:
-            filtered_data = self._filter_by_rating(filtered_data, features.min_rating)
-
-        if features.min_votes is not None:
-            filtered_data = self._filter_by_votes(filtered_data, features.min_votes)
 
         if features.negative_keywords:
             filtered_data = self._filter_by_negative_keywords(
                 filtered_data, features.negative_keywords
             )
-        if (
-            features.min_runtime_minutes is not None
-            or features.max_runtime_minutes is not None
-        ):
+        if (features.min_runtime_minutes is not None or features.max_runtime_minutes is not None):
             filtered_data = self._filter_by_runtime(
                 filtered_data,
                 features.min_runtime_minutes,
@@ -47,12 +41,20 @@ class MovieFilter:
         return filtered_data
 
     def _filter_by_runtime(
-        self, data: pd.DataFrame, min_runtime: int, max_runtime: int
+        self, data: pd.DataFrame, min_runtime: Optional[int], max_runtime: Optional[int]
     ) -> pd.DataFrame:
+
+        data = data.dropna(subset=['runtimeMinutes'])
+        data["runtimeMinutes"] = pd.to_numeric(data["runtimeMinutes"], errors='coerce').astype('Int64')
+
+
+        data = data.dropna(subset=['runtimeMinutes'])
         if min_runtime is not None:
-            data = data[data["runtimeMinutes"].astype(int) >= min_runtime]
+            data = data[data["runtimeMinutes"] >= min_runtime]
+        
         if max_runtime is not None:
-            data = data[data["runtimeMinutes"].astype(int) <= max_runtime]
+            data = data[data["runtimeMinutes"] <= max_runtime]
+        
         return data
 
     def _filter_by_type(self, data: pd.DataFrame, movie_or_series: str) -> pd.DataFrame:
@@ -65,6 +67,15 @@ class MovieFilter:
         else:
             all_types = ["movie", "tvSeries", "tvMiniSeries", "tvMovie", "video"]
             return data[data["titleType"].isin(all_types)]
+
+    def calculate_genre_score(self, row_genres: str, target_genres: List[str]) -> float:
+        if pd.isna(row_genres) or not target_genres:
+            return 0.0
+        row_genre_list = [g.strip().lower() for g in row_genres.split(",")]
+        target_genre_list = [g.lower() for g in target_genres]
+
+        matches = sum(1 for g in row_genre_list if g in target_genre_list)
+        return matches / len(target_genre_list)
 
     def _filter_by_genres(self, data: pd.DataFrame, genres: List[str]) -> pd.DataFrame:
         if not genres:
@@ -108,12 +119,6 @@ class MovieFilter:
             (data["startYear"].astype(int) >= start_year)
             & (data["startYear"].astype(int) <= end_year)
         ]
-
-    def _filter_by_rating(self, data: pd.DataFrame, min_rating: float) -> pd.DataFrame:
-        return data[data["averageRating"] >= min_rating]
-
-    def _filter_by_votes(self, data: pd.DataFrame, min_votes: int) -> pd.DataFrame:
-        return data[data["numVotes"] >= min_votes]
 
     def _filter_by_negative_keywords(
         self, data: pd.DataFrame, negative_keywords: List[str]
