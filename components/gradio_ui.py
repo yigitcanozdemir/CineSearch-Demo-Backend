@@ -1,6 +1,9 @@
 import gradio as gr
 from models.recommendation_engine import RecommendationEngine
-from components.imdb_poster import get_imdb_poster, get_posters_parallel
+import pandas as pd
+
+pd.set_option("display.max_rows", 100)
+pd.set_option("display.max_columns", None)
 
 
 def get_recommendations_api(message, engine):
@@ -13,7 +16,6 @@ def get_recommendations_api(message, engine):
         if df is None or df.empty:
             return []
         imdb_ids = df["ImdbId"].tolist()
-        poster_urls = get_posters_parallel(imdb_ids)
         recommendations = []
         for idx, (_, row) in enumerate(df.iterrows()):
             recommendations.append(
@@ -29,12 +31,26 @@ def get_recommendations_api(message, engine):
                     "similarity": row["Similarity"],
                     "hybrid_score": row["Hybrid Score"],
                     "overview": row["Overview"],
-                    "poster_url": poster_urls[idx],
+                    "poster_url": row["Poster Url"],
                     "final_score": row["Final Score"],
                     "genre_score": row["Genre Score"],
                 }
             )
 
+        result_df = pd.DataFrame(recommendations)[
+            [
+                "title",
+                "final_score",
+                "genre_score",
+                "hybrid_score",
+                "similarity",
+                "votes",
+                "rating",
+            ]
+        ]
+        titles = result_df["title"].tolist()
+        print(titles)
+        print(result_df)
         return recommendations
     except Exception as e:
         print(f"Error getting recommendations: {e}")

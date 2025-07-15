@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from config import GENRE_LIST
-
+from config import QUALITY_LEVELS
 
 class Features(BaseModel):
     movie_or_series: Literal["movie", "tvSeries", "both"] = Field(
@@ -10,23 +10,26 @@ class Features(BaseModel):
     genres: list[GENRE_LIST] = Field(
         description="List of genres from the predefined list"
     )
-    quality_level: str = Field(
-        description="Quality expectation: legendary, classic, popular, any"
+    negative_genres: list[GENRE_LIST] = Field(
+        description="Unwanted list of genres from the predefined list"
     )
-    themes: list[str] = Field(
-        description="Actual thematic content (not quality descriptors)"
+    quality_level: str = Field(
+        default="any",
+        description="Quality expectation: legendary, classic, popular, niche, cult, mainstream, any"
+    )
+    positive_themes: str = Field(
+        default="When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.",
+        description="Themes that should be present in the results"
+    )
+    negative_themes: Optional[str] = Field(
+        description="Themes that should be avoided in the results"
     )
     date_range: list[int] = Field(
         description="Date range [min_year, max_year] (note: min_year is 1900, max_year is 2025)"
     )
-    negative_keywords: list[str] = Field(description="List of negative keywords")
     min_runtime_minutes: Optional[int] = Field(
         description="Preferred minumum runtimes as minutes", default=None
     )
     max_runtime_minutes: Optional[int] = Field(
         description="Preferred maximum runtimes as minutes", default=None
-    )
-    named_entities: list[str] = Field(
-        description="Franchise, brand or universe names (e.g. Marvel, Star Wars, Ghibli, Dune, Harry Potter, etc.)",
-        default_factory=list,
     )

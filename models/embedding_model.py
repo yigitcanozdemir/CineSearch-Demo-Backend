@@ -10,4 +10,4 @@ class EmbeddingModel:
         )
 
     def encode(self, texts):
-        return self.model.encode(texts)
+        return self.model.encode(texts, prompt="query")

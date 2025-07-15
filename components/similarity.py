@@ -4,14 +4,20 @@ import pandas as pd
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 import time
+from config import QUALITY_LEVELS
 
 
 class SimilarityCalculator:
     def __init__(self, model: SentenceTransformer):
         self.model = model
 
+    def combined_and_score(self, similarity_matrix, alpha=10):
+
+        smooth_min = -torch.logsumexp(-alpha * similarity_matrix, dim=0) / alpha
+        return smooth_min
+
     def calculate_similarity(
-        self, query: str, filtered_data: pd.DataFrame, top_k: int = 40
+        self, features: str, filtered_data: pd.DataFrame, top_k: int = 40
     ) -> Dict[str, Any]:
         if filtered_data.empty:
             return {
@@ -22,20 +28,76 @@ class SimilarityCalculator:
             }
 
         start_time = time.time()
-        print(f"🔍 Calculating similarity for query: {query}")
-        query_embedding = self.model.encode([query])
-        query_embedding = torch.tensor(query_embedding, dtype=torch.float32)
+        positive_themes = features.positive_themes
+        negative_themes = features.negative_themes
+        print(f"🔍 Calculating similarity for query: {positive_themes}")
 
-        document_embeddings = filtered_data["embedding"].tolist()
-        document_embeddings = torch.tensor(
-            np.array(document_embeddings), dtype=torch.float32
+        positive_query_embeddings_np = self.model.encode(
+            positive_themes, convert_to_numpy=True
         )
 
-        similarities = self.model.similarity(query_embedding, document_embeddings)
+        positive_query_embeddings = torch.tensor(
+            positive_query_embeddings_np, dtype=torch.float32
+        )
+
+        if (
+            positive_query_embeddings.dim() > 1
+            and positive_query_embeddings.shape[0] > 1
+        ):
+            avg_positive = torch.mean(positive_query_embeddings, dim=0, keepdim=True)
+        else:
+            avg_positive = positive_query_embeddings
+        document_embeddings = torch.tensor(
+            np.array(filtered_data["embedding"].tolist()), dtype=torch.float32
+        )
+
+        if negative_themes is not None and len(negative_themes) > 0:
+
+            negative_query_embeddings_np = self.model.encode(
+                negative_themes, convert_to_numpy=True
+            )
+            negative_query_embeddings = torch.tensor(
+                negative_query_embeddings_np, dtype=torch.float32
+            )
+
+            if (
+                negative_query_embeddings.dim() > 1
+                and negative_query_embeddings.shape[0] > 1
+            ):
+                avg_negative = torch.mean(
+                    negative_query_embeddings, dim=0, keepdim=True
+                )
+            else:
+                avg_negative = negative_query_embeddings
+            positive_weight = 1.0
+            negative_influence = 0.6
+            combined_embedding = (positive_weight * avg_positive) - (
+                negative_influence * avg_negative
+            )
+
+        else:
+            combined_embedding = avg_positive
+
+        print("Positive query embedding", avg_positive)
+
+        similarities = self.model.similarity(combined_embedding, document_embeddings)
         similarities = similarities[0]
 
+        print("Magnitude of avg_positive:", torch.norm(avg_positive))
+        if negative_themes is not None and len(negative_themes) > 0:
+            print("Magnitude of avg_negative:", torch.norm(avg_negative))
+            print("Magnitude of combined_embedding:", torch.norm(combined_embedding))
+        print("Mean:", similarities.mean())
+        print("Max:", similarities.max())
+        print("Std:", similarities.std())
+        quality_config = QUALITY_LEVELS.get(features.quality_level, {})
+        rating_weight = quality_config.get("rating_weight")
         hybrid_scores = self._calculate_hybrid_score(
-            similarities, filtered_data, similarity_weight=0.8, rating_weight=0.2
+            similarities,
+            filtered_data,
+            similarity_weight=1,
+            rating_weight=rating_weight,
+            genre_weight=0.2,
         )
 
         top_indices = (
@@ -63,6 +125,7 @@ class SimilarityCalculator:
                 "hybrid_score": float(hybrid_scores[idx]),
                 "final_score": row["finalScore"],
                 "genre_score": row["genreScore"],
+                "poster_url": row["poster_url"],
             }
             results.append(result)
 
@@ -74,7 +137,7 @@ class SimilarityCalculator:
             "results": results,
             "search_time": search_time,
             "total_candidates": len(filtered_data),
-            "query_embedding_shape": query_embedding.shape,
+            "query_embedding_shape": combined_embedding.shape,
         }
 
     def _calculate_hybrid_score(
@@ -83,9 +146,8 @@ class SimilarityCalculator:
         data: pd.DataFrame,
         similarity_weight: float = 0.8,
         rating_weight: float = 0.1,
-        genre_weight: float = 0.1,
+        genre_weight: float = 0.2,
     ) -> torch.Tensor:
-
         sim_normalized = (similarities - similarities.min()) / (
             similarities.max() - similarities.min() + 1e-8
         )
@@ -93,16 +155,13 @@ class SimilarityCalculator:
         if "finalScore" in data.columns:
             final_scores = torch.tensor(data["finalScore"].values, dtype=torch.float32)
             genre_score = torch.tensor(data["genreScore"].values, dtype=torch.float32)
-            print(f"Genre scores: {genre_score}")
             final_normalized = (final_scores - final_scores.min()) / (
                 final_scores.max() - final_scores.min() + 1e-8
             )
-            print(f"Final scores normalized: {final_normalized}")
-            print(f"Final scores: {final_scores}")
 
             total_weight = similarity_weight + rating_weight + genre_weight
             hybrid_score = (
-                similarity_weight * sim_normalized
+                similarity_weight * similarities
                 + rating_weight * final_normalized
                 + genre_weight * genre_score
             ) / total_weight
