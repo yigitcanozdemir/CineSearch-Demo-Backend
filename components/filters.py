@@ -4,13 +4,13 @@ from typing import List, Optional
 import re
 from config import QUALITY_LEVELS
 
+
 class MovieFilter:
     def __init__(self):
         pass
 
     def apply_filters(self, data: pd.DataFrame, features: Features) -> pd.DataFrame:
         filtered_data = data.copy()
-        
 
         if features.movie_or_series != "both":
             filtered_data = self._filter_by_type(
@@ -20,13 +20,11 @@ class MovieFilter:
         if features.genres or features.negative_genres:
             filtered_data["genreScore"] = filtered_data["genres"].apply(
                 lambda g: self.calculate_genre_score(
-                    g, 
-                    features.genres or [], 
-                    features.negative_genres or []
+                    g, features.genres or [], features.negative_genres or []
                 )
             )
         else:
-            
+
             filtered_data["genreScore"] = 0.0
 
         if features.date_range:
@@ -35,7 +33,9 @@ class MovieFilter:
             )
 
         if features.quality_level:
-            filtered_data = self._filter_by_quality(filtered_data, features.quality_level)
+            filtered_data = self._filter_by_quality(
+                filtered_data, features.quality_level
+            )
 
         if (
             features.min_runtime_minutes is not None
@@ -46,7 +46,10 @@ class MovieFilter:
                 features.min_runtime_minutes,
                 features.max_runtime_minutes,
             )
-
+        if features.country_of_origin or features.dont_wanted_countrys:
+            filtered_data = self._filter_by_country_of_origin(
+                filtered_data, features.country_of_origin, features.dont_wanted_countrys
+            )
         return filtered_data
 
     def _filter_by_runtime(
@@ -78,66 +81,77 @@ class MovieFilter:
             all_types = ["movie", "tvSeries", "tvMiniSeries", "tvMovie", "video"]
             return data[data["titleType"].isin(all_types)]
 
-    def calculate_genre_score(self, row_genres: str, 
-                                target_genres: List[str], 
-                                negative_genres: List[str]) -> float:
-            if not row_genres or pd.isna(row_genres):
-                return 0.0
-            
-            try:
-                row_genre_list = [g.strip().lower() for g in row_genres.split(",")]
-                target_genre_list = [g.lower() for g in target_genres]
-                negative_genre_list = [g.lower() for g in negative_genres]
+    def calculate_genre_score(
+        self, row_genres: str, target_genres: List[str], negative_genres: List[str]
+    ) -> float:
+        if not row_genres or pd.isna(row_genres):
+            return 0.0
 
-                positive_matches = sum(1 for g in row_genre_list if g in target_genre_list)
-                
-                negative_matches = sum(1 for g in row_genre_list if g in negative_genre_list)
-
-                score = 0.0
-                if target_genres:
-                    score = positive_matches / len(target_genre_list)
-                elif positive_matches > 0:
-                    score = 1.0 
-
-                score -= (negative_matches * 0.5) 
-                return max(0.0, score)
-            except (AttributeError, TypeError):
-                return 0.0
-
-
-    def _filter_by_genres(self, data: pd.DataFrame, genres: List[str]) -> pd.DataFrame:
-        if not genres:
-            return data
-
-        def count_genre_matches(row_genres, target_genres):
-            if pd.isna(row_genres):
-                return 0
-
+        try:
             row_genre_list = [g.strip().lower() for g in row_genres.split(",")]
             target_genre_list = [g.lower() for g in target_genres]
+            negative_genre_list = [g.lower() for g in negative_genres]
 
-            matches = sum(
-                1
-                for target_genre in target_genre_list
-                if any(target_genre in row_genre for row_genre in row_genre_list)
+            positive_matches = sum(1 for g in row_genre_list if g in target_genre_list)
+
+            negative_matches = sum(
+                1 for g in row_genre_list if g in negative_genre_list
             )
-            return matches
 
-        data_with_matches = data.copy()
-        data_with_matches["genre_matches"] = data_with_matches["genres"].apply(
-            lambda g: count_genre_matches(g, genres)
-        )
+            score = 0.0
+            if target_genres:
+                score = positive_matches / len(target_genre_list)
+            elif positive_matches > 0:
+                score = 1.0
 
-        filtered_2plus = data_with_matches[data_with_matches["genre_matches"] >= 2]
+            score -= negative_matches * 0.5
+            return score
+        except (AttributeError, TypeError):
+            return 0.0
 
-        if len(filtered_2plus) >= 20:
-            print(f"Using 2+ genre matches: {len(filtered_2plus)} results")
-            return filtered_2plus.drop("genre_matches", axis=1)
+    def _filter_by_country_of_origin(
+        self,
+        data: pd.DataFrame,
+        country_of_origin: List[str],
+        dont_wanted_countrys: List[str] = None,
+    ) -> pd.DataFrame:
+        if not country_of_origin and not dont_wanted_countrys:
+            return data
 
-        filtered_1plus = data_with_matches[data_with_matches["genre_matches"] >= 1]
-        print(f"Using 1+ genre matches: {len(filtered_1plus)} results")
+        data_with_country = data.dropna(subset=["country_of_origin"])
 
-        return filtered_1plus.drop("genre_matches", axis=1)
+        def country_matches(row_countries: str) -> bool:
+            if not row_countries or pd.isna(row_countries):
+                return False
+
+            try:
+                row_country_list = [
+                    country.strip() for country in row_countries.split(",")
+                ]
+
+                if dont_wanted_countrys:
+                    has_unwanted = any(
+                        unwanted_country == row_country
+                        for unwanted_country in dont_wanted_countrys
+                        for row_country in row_country_list
+                    )
+                    if has_unwanted:
+                        return False
+
+                if country_of_origin:
+                    return any(
+                        target_country == row_country
+                        for target_country in country_of_origin
+                        for row_country in row_country_list
+                    )
+
+                return True
+
+            except (AttributeError, TypeError):
+                return False
+
+        mask = data_with_country["country_of_origin"].apply(country_matches)
+        return data_with_country[mask]
 
     def _filter_by_date_range(
         self, data: pd.DataFrame, date_range: List[int]
@@ -158,13 +172,13 @@ class MovieFilter:
         if config:
             condition = pd.Series(True, index=data.index)
             if "min_rating" in config:
-                condition &= (data["averageRating"] >= config["min_rating"])
+                condition &= data["averageRating"] >= config["min_rating"]
             if "max_rating" in config:
-                condition &= (data["averageRating"] <= config["max_rating"])
+                condition &= data["averageRating"] <= config["max_rating"]
             if "min_votes" in config:
-                condition &= (data["numVotes"] >= config["min_votes"])
+                condition &= data["numVotes"] >= config["min_votes"]
             if "max_votes" in config:
-                condition &= (data["numVotes"] <= config["max_votes"])
+                condition &= data["numVotes"] <= config["max_votes"]
             return data[condition]
 
         return data

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
-from config import GENRE_LIST
-from config import QUALITY_LEVELS
+from config import GENRE_LIST, COUNTRY_LIST
+
 
 class Features(BaseModel):
     movie_or_series: Literal["movie", "tvSeries", "both"] = Field(
@@ -15,11 +15,10 @@ class Features(BaseModel):
     )
     quality_level: str = Field(
         default="any",
-        description="Quality expectation: legendary, classic, popular, niche, cult, mainstream, any"
+        description="Quality expectation: legendary, classic, popular, niche, cult, mainstream, any",
     )
-    positive_themes: str = Field(
-        default="When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.",
-        description="Themes that should be present in the results"
+    positive_themes: Optional[str] = Field(
+        description="Themes that should be present in the results",
     )
     negative_themes: Optional[str] = Field(
         description="Themes that should be avoided in the results"
@@ -33,3 +32,10 @@ class Features(BaseModel):
     max_runtime_minutes: Optional[int] = Field(
         description="Preferred maximum runtimes as minutes", default=None
     )
+    country_of_origin: list[COUNTRY_LIST] = Field(
+        description="Preferred country of production"
+    )
+    dont_wanted_countrys: list[COUNTRY_LIST] = Field(
+        description="Unwanted country of production"
+    )
+    prompt_title: str = Field(description="A short and meaningful title for the prompt")

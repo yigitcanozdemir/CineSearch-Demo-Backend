@@ -15,25 +15,26 @@ def get_recommendations_api(message, engine):
         df = result[1] if isinstance(result, tuple) and len(result) > 1 else None
         if df is None or df.empty:
             return []
-        imdb_ids = df["ImdbId"].tolist()
+        prompt_title = result[0]
         recommendations = []
         for idx, (_, row) in enumerate(df.iterrows()):
             recommendations.append(
                 {
-                    "imdb_id": row["ImdbId"],
-                    "title": row["Title"],
-                    "year": row["Year"],
-                    "type": row["Type"],
-                    "rating": row["Rating"],
-                    "runtime_minutes": row["RuntimeMinutes"],
-                    "votes": row["Votes"],
-                    "genres": row["Genres"],
-                    "similarity": row["Similarity"],
-                    "hybrid_score": row["Hybrid Score"],
-                    "overview": row["Overview"],
-                    "poster_url": row["Poster Url"],
-                    "final_score": row["Final Score"],
-                    "genre_score": row["Genre Score"],
+                    "imdb_id": row["tconst"],
+                    "title": row["title"],
+                    "year": row["year"],
+                    "type": row["type"],
+                    "rating": row["rating"],
+                    "runtime_minutes": row["runtimeMinutes"],
+                    "votes": row["votes"],
+                    "genres": row["genres"],
+                    "similarity": row["similarity_score"],
+                    "hybrid_score": row["hybrid_score"],
+                    "overview": row["overview"],
+                    "poster_url": row["poster_url"],
+                    "final_score": row["final_score"],
+                    "genre_score": row["genre_score"],
+                    "country_of_origin": row["country_of_origin"],
                 }
             )
 
@@ -51,7 +52,7 @@ def get_recommendations_api(message, engine):
         titles = result_df["title"].tolist()
         print(titles)
         print(result_df)
-        return recommendations
+        return {"recommendations": recommendations, "prompt_title": prompt_title}
     except Exception as e:
         print(f"Error getting recommendations: {e}")
         return []
@@ -63,10 +64,9 @@ def create_interface(engine):
 
     iface = gr.Interface(
         fn=predict_wrapper,
-        inputs=gr.Textbox(lines=1, placeholder="Type your movie query..."),
+        inputs=gr.Textbox(lines=1, placeholder="Type your query..."),
         outputs=gr.JSON(label="Recommendations"),
-        title="Movie Recommendation API",
-        description="Type a movie or genre, get recommendations with posters.",
+        title="Recommendation API",
         api_name="predict",
     )
     return iface

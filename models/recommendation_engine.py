@@ -72,11 +72,6 @@ class RecommendationEngine:
                     raise similarity_error
 
             print(f"🔍 Found {len(search_results['results'])} results.")
-            print("📋 Formatting results...")
-            start_time = time.time()
-            formatted_results = self._format_results(search_results)
-            format_time = time.time() - start_time
-            print(f"✅ Results formatted in {format_time:.4f} seconds")
 
             print("📊 Creating results dataframe...")
             start_time = time.time()
@@ -85,7 +80,7 @@ class RecommendationEngine:
             print(f"✅ Dataframe created in {df_time:.4f} seconds")
 
             print("🎉 Recommendation process completed successfully!")
-            return formatted_results, results_df
+            return features.prompt_title, results_df
 
         except Exception as e:
             print(f"❌ Critical error in recommendation process: {str(e)}")
@@ -120,7 +115,7 @@ class RecommendationEngine:
                                     ---
 
                                     ### GENRES
-                                    - If the user mentions a specific movie/show, extract its ACTUAL genres (e.g., IMDb/TMDB genres).
+                                    - If the user mentions a specific movie/show, extract its ACTUAL genres (e.g., IMDb/TMDB genres). (Example if user wants anime, select animation etc.)
                                     - If unsure, infer 1–2 of the most likely/popular genres.
                                     - If user directly mentions genres, match exactly from the allowed genre list.
                                     - Prefer accuracy over guessing; leave empty if absolutely no genre can be inferred.
@@ -211,9 +206,10 @@ class RecommendationEngine:
                                     ✅ GOOD THEMES EXAMPLES:
                                     - “In 1970s New York, a Mafia don must navigate betrayal and FBI pressure to hold his criminal empire together.”
                                     - “A Mexican drug lord rises to power as DEA agents close in on his cross-border empire.”
-                                    - "In an alternative version of 1969, the Soviet Union beats the United States to the Moon, and the space race continues on for decades with still grander challenges and goals."
-                                    - "When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans"
-                                    - "An astronaut becomes stranded on Mars after his team assume him dead, and must rely on his ingenuity to find a way to signal to Earth that he is alive and can survive until a potential rescue."
+                                    - “New Jersey mob boss Tony Soprano deals with personal and professional issues in his home and business life that affect his mental state, leading him to seek professional psychiatric counseling.“
+                                    - “In an alternative version of 1969, the Soviet Union beats the United States to the Moon, and the space race continues on for decades with still grander challenges and goals.“
+                                    - “When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans“
+                                    - “An astronaut becomes stranded on Mars after his team assume him dead, and must rely on his ingenuity to find a way to signal to Earth that he is alive and can survive until a potential rescue.“
                                     ❌ BAD THEMES TO AVOID:
                                     - “A powerful family faces betrayal as they try to protect their empire.” ⟶ Too vague and franchise-prone
 
@@ -255,11 +251,57 @@ class RecommendationEngine:
                                     - Defaults to `[1900, 2025]` if not constrained.
                                     - "recent", "modern" → prefer `[2010, 2025]`
                                     - "classic", "old" → prefer `[1950, 1995]`
-
+                                    
+                                    ---
+                                    
+                                    ### COUNTRY OF ORIGIN
+                                    Analyze the user's country of origin preference:
+                                    - "Turkish movies", "Türk filmi" → `["Turkey"]`
+                                    - "Hollywood films", "American movies" → `["United States"]`
+                                    - "Bollywood", "Indian cinema" → `["India"]`
+                                    - "French films", "French cinema" → `["France"]`
+                                    - "Korean movies", "K-drama" → `["South Korea"]`
+                                    - "Japanese anime", "Japanese films" → `["Japan"]`
+                                    - "British series", "UK shows" → `["United Kingdom"]`
+                                    - "German films", "German cinema" → `["Germany"]`
+                                    - "Italian movies", "Italian cinema" → `["Italy"]`
+                                    - "Spanish films", "Spanish series" → `["Spain"]`
+                                    - "Russian movies", "Russian cinema" → `["Russia"]`
+                                    - "Chinese films", "Chinese cinema" → `["China"]`
+                                    - "Brazilian movies", "Brazilian cinema" → `["Brazil"]`
+                                    - "Mexican series", "Mexican films" → `["Mexico"]`
+                                    - "Canadian films", "Canadian cinema" → `["Canada"]`
+                                    - "Australian movies", "Australian cinema" → `["Australia"]`
+                                    
+                                    #### REGIONAL/CULTURAL CLUES:
+                                    - "Nordic noir", "Scandinavian" → `["Norway", "Sweden", "Denmark"]`
+                                    - "European cinema" → `["France", "Germany", "Italy", "Spain", "United Kingdom"]`
+                                    - "Asian cinema" → `["Japan", "South Korea", "China", "India"]`
+                                    - "Latin American" → `["Mexico", "Brazil", "Argentina", "Colombia"]`
+                                    - "Middle Eastern" → `["Turkey", "Iran", "Israel", "Lebanon"]`
+                                    
+                                    
+                                    
+                                    #### PLATFORM/DISTRIBUTOR CLUES:
+                                    - "Netflix original" → Varies by platform, usually `["United States"]`
+                                    - "BBC series" → `["United Kingdom"]`
+                                    - "HBO series" → `["United States"]`
+                                    - "Amazon Prime" → Usually `["United States"]`
+                                    
+                                    
+                                    #### DEFAULT BEHAVIORS:
+                                    - No country specified: `[]` (empty list - all countries)
+                                    - Ambiguous expressions: `[]` (empty list)
+                                    - Multiple country preference: Return as list (e.g., `["United States", "United Kingdom"]`)
+                                    
                                     ---
 
                                     ### LANGUAGE
                                     If the query is not in English, **translate to English first**, then apply the above rules.
+                                    
+                                    ### PROMPT TITLE
+                                    Generate a short, clear, and meaningful title for users query.
+                                    ***Critical: Always return title
 
                                     ---
 
@@ -290,34 +332,6 @@ class RecommendationEngine:
                 production_region=[],
             )
 
-    def _format_results(self, search_results: dict) -> str:
-        if not search_results["results"]:
-            return search_results["status"]
-
-        output = []
-        output.append(f"🎬 {search_results['status']}")
-        output.append(
-            f"🔍 Search completed in {search_results['search_time']:.4f} seconds"
-        )
-        output.append(
-            f"📊 Found {len(search_results['results'])} results from {search_results['total_candidates']} candidates"
-        )
-        output.append("=" * 50)
-
-        for i, result in enumerate(search_results["results"], 1):
-            output.append(f"{i}. **{result['title']}** ({result['year']})")
-            output.append(f"   📝 Type: {result['type'].title()}")
-            output.append(
-                f"   ⭐ Rating: {result['rating']}/10 ({result['votes']:,} votes)"
-            )
-            output.append(f"   🎭 Genres: {result['genres']}")
-            output.append(f"   📊 Similarity: {result['similarity_score']:.4f}")
-            output.append(f"   🏆 Hybrid Score: {result['hybrid_score']:.4f}")
-            output.append(f"   📄 {result['overview']}")
-            output.append("")
-
-        return "\n".join(output)
-
     def _create_results_dataframe(self, search_results: dict) -> pd.DataFrame:
         if not search_results["results"]:
             return pd.DataFrame()
@@ -326,20 +340,21 @@ class RecommendationEngine:
         for result in search_results["results"]:
             df_data.append(
                 {
-                    "ImdbId": result["tconst"],
-                    "Title": result["title"],
-                    "Type": result["type"],
-                    "Year": result["year"],
-                    "Rating": result["rating"],
-                    "RuntimeMinutes": result["runtimeMinutes"],
-                    "Votes": result["votes"],
-                    "Genres": result["genres"],
-                    "Similarity": f"{result['similarity_score']:.4f}",
-                    "Hybrid Score": f"{result['hybrid_score']:.4f}",
-                    "Overview": result["overview"],
-                    "Final Score": f"{result['final_score']:.4f}",
-                    "Genre Score": f"{result['genre_score']:.4f}",
-                    "Poster Url": result["poster_url"],
+                    "tconst": result["tconst"],
+                    "title": result["title"],
+                    "type": result["type"],
+                    "year": result["year"],
+                    "rating": result["rating"],
+                    "runtimeMinutes": result["runtimeMinutes"],
+                    "votes": result["votes"],
+                    "genres": result["genres"],
+                    "similarity_score": f"{result['similarity_score']:.4f}",
+                    "hybrid_score": f"{result['hybrid_score']:.4f}",
+                    "overview": result["overview"],
+                    "final_score": f"{result['final_score']:.4f}",
+                    "genre_score": f"{result['genre_score']:.4f}",
+                    "poster_url": result["poster_url"],
+                    "country_of_origin": result["country_of_origin"],
                 }
             )
         return pd.DataFrame(df_data)

@@ -97,7 +97,7 @@ class SimilarityCalculator:
             filtered_data,
             similarity_weight=1,
             rating_weight=rating_weight,
-            genre_weight=0.2,
+            genre_weight=0.3,
         )
 
         top_indices = (
@@ -105,7 +105,6 @@ class SimilarityCalculator:
             .indices.cpu()
             .numpy()
         )
-
         results = []
         for idx in top_indices:
             original_idx = filtered_data.iloc[idx].name
@@ -126,6 +125,7 @@ class SimilarityCalculator:
                 "final_score": row["finalScore"],
                 "genre_score": row["genreScore"],
                 "poster_url": row["poster_url"],
+                "country_of_origin": row["country_of_origin"],
             }
             results.append(result)
 
