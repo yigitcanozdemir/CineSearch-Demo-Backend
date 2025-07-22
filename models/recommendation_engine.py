@@ -22,85 +22,59 @@ class RecommendationEngine:
         self.similarity_calc = SimilarityCalculator(self.model)
         self.filter = MovieFilter()
 
-        print(f"✅ Recommendation engine initialized with {len(self.data)} items.")
-
     def get_recommendations(self, user_query: str, top_k: int = 40):
-        print(f"🚀 Starting recommendation process for query: '{user_query}'")
+        print(f"Starting recommendation process for query: '{user_query}'")
         if not user_query.strip():
-            return "⚠️ Please enter some text.", None
+            return "Please enter some text.", None
 
         try:
-            print("📝 Parsing user query...")
             start_time = time.time()
             features = self._parse_user_query(user_query)
-            parse_time = time.time() - start_time
-            print(f"✅ Query parsed in {parse_time:.4f} seconds")
-
-            print("🔍 Applying filters...")
-            start_time = time.time()
             filtered_data = self.filter.apply_filters(self.data, features)
-            filter_time = time.time() - start_time
-            print(f"✅ Filters applied in {filter_time:.4f} seconds")
-            print(f"🔍 Filtered data contains {len(filtered_data)} items.")
-            print("🔧 Preparing query input...")
-            print(
-                f"📝 Query text for embedding: Positive ['{features.positive_themes}'], Negative [{features.negative_themes}]"
-            )
-            print("🧮 Starting similarity calculation...")
-            start_time = time.time()
+
             try:
                 search_results = self.similarity_calc.calculate_similarity(
                     features, filtered_data, top_k
                 )
-                similarity_time = time.time() - start_time
-                print(
-                    f"✅ Similarity calculation completed in {similarity_time:.4f} seconds"
-                )
-
             except Exception as similarity_error:
-                print(f"❌ Error in similarity calculation: {str(similarity_error)}")
-                print(f"📊 Traceback: {traceback.format_exc()}")
+                print(f"Error in similarity calculation: {str(similarity_error)}")
+                print(f"Traceback: {traceback.format_exc()}")
 
-                print("🔄 Attempting recovery with smaller dataset...")
+                print("Attempting recovery with smaller dataset...")
                 if len(filtered_data) > 1000:
                     smaller_data = filtered_data.sample(n=1000, random_state=42)
                     search_results = self.similarity_calc.calculate_similarity(
                         features, smaller_data, top_k
                     )
-                    print("✅ Recovery successful with smaller dataset")
+                    print("Recovery successful with smaller dataset")
                 else:
                     raise similarity_error
 
-            print(f"🔍 Found {len(search_results['results'])} results.")
+            print(f"Found {len(search_results['results'])} results.")
 
-            print("📊 Creating results dataframe...")
-            start_time = time.time()
             results_df = self._create_results_dataframe(search_results)
-            df_time = time.time() - start_time
-            print(f"✅ Dataframe created in {df_time:.4f} seconds")
-
-            print("🎉 Recommendation process completed successfully!")
+            total_time = time.time() - start_time
+            print(f"Recommendation finished in {total_time:.4f} seconds")
             return features.prompt_title, results_df
 
         except Exception as e:
-            print(f"❌ Critical error in recommendation process: {str(e)}")
-            print(f"📊 Full traceback: {traceback.format_exc()}")
-            print(f"🔍 Exception type: {type(e).__name__}")
+            print(f"Critical error in recommendation process: {str(e)}")
+            print(f"Full traceback: {traceback.format_exc()}")
+            print(f"Exception type: {type(e).__name__}")
 
             try:
                 import psutil
 
                 process = psutil.Process()
                 memory_usage = process.memory_info().rss / 1024 / 1024
-                print(f"💾 Current memory usage: {memory_usage:.2f} MB")
+                print(f"Current memory usage: {memory_usage:.2f} MB")
             except:
                 pass
 
-            return f"❌ Error: {str(e)}", None
+            return f"Error: {str(e)}", None
 
     def _parse_user_query(self, query: str) -> Features:
         try:
-            print(f"📤 Sending query to OpenAI: '{query}'")
             response = self.client.beta.chat.completions.parse(
                 model="gpt-4o",
                 messages=[
@@ -315,19 +289,16 @@ class RecommendationEngine:
             )
 
             response_model = response.choices[0].message.parsed
-            print(f"📥 OpenAI response received successfully")
-            print(f"🔍 Response type: {type(response_model)}")
-            print(f"📋 Response content: {response_model.model_dump_json(indent=2)}")
+            print(f"Response content: {response_model.model_dump_json(indent=2)}")
             return response_model
         except Exception as e:
-            print(f"❌ Error parsing user query: {str(e)}")
-            print(f"📊 Parse error traceback: {traceback.format_exc()}")
+            print(f"Parse error traceback: {traceback.format_exc()}")
             return Features(
                 movie_or_series="both",
                 genres=[],
                 quality_level="any",
                 themes=[query],
-                date_range=[2000, 2025],
+                date_range=[1900, 2025],
                 negative_keywords=[],
                 production_region=[],
             )

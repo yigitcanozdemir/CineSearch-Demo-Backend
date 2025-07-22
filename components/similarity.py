@@ -21,7 +21,7 @@ class SimilarityCalculator:
     ) -> Dict[str, Any]:
         if filtered_data.empty:
             return {
-                "status": "⚠️ No results found with current filters.",
+                "status": "No results found with current filters.",
                 "results": [],
                 "search_time": 0,
                 "total_candidates": 0,
@@ -30,7 +30,6 @@ class SimilarityCalculator:
         start_time = time.time()
         positive_themes = features.positive_themes
         negative_themes = features.negative_themes
-        print(f"🔍 Calculating similarity for query: {positive_themes}")
 
         positive_query_embeddings_np = self.model.encode(
             positive_themes, convert_to_numpy=True
@@ -78,18 +77,9 @@ class SimilarityCalculator:
         else:
             combined_embedding = avg_positive
 
-        print("Positive query embedding", avg_positive)
-
         similarities = self.model.similarity(combined_embedding, document_embeddings)
         similarities = similarities[0]
 
-        print("Magnitude of avg_positive:", torch.norm(avg_positive))
-        if negative_themes is not None and len(negative_themes) > 0:
-            print("Magnitude of avg_negative:", torch.norm(avg_negative))
-            print("Magnitude of combined_embedding:", torch.norm(combined_embedding))
-        print("Mean:", similarities.mean())
-        print("Max:", similarities.max())
-        print("Std:", similarities.std())
         quality_config = QUALITY_LEVELS.get(features.quality_level, {})
         rating_weight = quality_config.get("rating_weight")
         hybrid_scores = self._calculate_hybrid_score(
@@ -133,7 +123,7 @@ class SimilarityCalculator:
         search_time = end_time - start_time
 
         return {
-            "status": "✅ Search completed successfully.",
+            "status": "Search completed successfully.",
             "results": results,
             "search_time": search_time,
             "total_candidates": len(filtered_data),
