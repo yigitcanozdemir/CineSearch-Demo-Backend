@@ -61,7 +61,7 @@ def get_recommendations_api(message, engine):
 
 def create_interface(engine):
     async def predict_wrapper(message):
-        return await asyncio.to_thread(get_recommendations_api(message, engine))
+        return await asyncio.to_thread(get_recommendations_api, message, engine)
 
     iface = gr.Interface(
         fn=predict_wrapper,
