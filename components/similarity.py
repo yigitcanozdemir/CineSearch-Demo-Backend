@@ -69,7 +69,7 @@ class SimilarityCalculator:
             else:
                 avg_negative = negative_query_embeddings
             positive_weight = 1.0
-            negative_influence = 0.6
+            negative_influence = 0.6 # Setting this value to 1 is so harsh so I just used smaller value
             combined_embedding = (positive_weight * avg_positive) - (
                 negative_influence * avg_negative
             )
@@ -97,7 +97,6 @@ class SimilarityCalculator:
         )
         results = []
         for idx in top_indices:
-            original_idx = filtered_data.iloc[idx].name
             row = filtered_data.iloc[idx]
 
             result = {
@@ -134,13 +133,10 @@ class SimilarityCalculator:
         self,
         similarities: torch.Tensor,
         data: pd.DataFrame,
-        similarity_weight: float = 0.8,
+        similarity_weight: float = 1,
         rating_weight: float = 0.1,
-        genre_weight: float = 0.2,
+        genre_weight: float = 0.3,
     ) -> torch.Tensor:
-        sim_normalized = (similarities - similarities.min()) / (
-            similarities.max() - similarities.min() + 1e-8
-        )
 
         if "finalScore" in data.columns:
             final_scores = torch.tensor(data["finalScore"].values, dtype=torch.float32)

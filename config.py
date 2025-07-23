@@ -4,6 +4,7 @@ from typing import Literal
 
 load_dotenv()
 
+#This genre list comes from the 'genres' field in data.parquet
 GENRE_LIST = Literal[
     "Action",
     "Adventure",
@@ -35,7 +36,7 @@ GENRE_LIST = Literal[
     "Adult",
     "Reality-TV",
 ]
-
+#Also this country list comes from the 'country_of_origin' field in data.parquet tho
 COUNTRY_LIST = Literal[
     "Italy",
     "France",
@@ -207,6 +208,7 @@ COUNTRY_LIST = Literal[
     "Yemen",
 ]
 
+#This are sweet spot values that I found 
 QUALITY_LEVELS = {
     "legendary": {"min_rating": 8.0, "min_votes": 100000, "rating_weight": 0.2},
     "classic": {"min_rating": 7.5, "min_votes": 50000, "rating_weight": 0.15},
@@ -220,11 +222,8 @@ QUALITY_LEVELS = {
 
 class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    TMDB_API_KEY = os.getenv("TMDB_API_KEY")
-    TMDB_BASE_URL = "https://api.themoviedb.org/3"
-    TMDB_IMAGE_BASE_URL = "https://image.tmdb.org/t/p/w500"
     EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
     DATA_FILE = "data/demo_data.parquet"
 
     THEME = "soft"
-    TITLE = "🎬 AI Movie & TV Series Recommender"
+    TITLE = "AI Movie & TV Series Recommender"
