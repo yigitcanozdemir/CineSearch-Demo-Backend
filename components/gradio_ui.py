@@ -1,6 +1,7 @@
 import gradio as gr
 from models.recommendation_engine import RecommendationEngine
 import pandas as pd
+import asyncio
 
 pd.set_option("display.max_rows", 100)
 pd.set_option("display.max_columns", None)
@@ -59,8 +60,8 @@ def get_recommendations_api(message, engine):
 
 
 def create_interface(engine):
-    def predict_wrapper(message):
-        return get_recommendations_api(message, engine)
+    async def predict_wrapper(message):
+        return asyncio.to_thread(get_recommendations_api(message, engine))
 
     iface = gr.Interface(
         fn=predict_wrapper,
