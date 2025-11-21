@@ -29,20 +29,26 @@ jobs:
             exit 1
           fi
 
+      - name: Install gradio-client
+        run: pip install --quiet "gradio-client>=1.3"
+        env:
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
       - name: Warm predict endpoint
         run: |
-          payload='{"data":["warmup ping"]}'
-          urls=("$SPACE_URL/run/predict" "$SPACE_URL/api/predict/")
-          for url in "${urls[@]}"; do
-            echo "Trying $url"
-            http_code=$(curl -sS -L --max-time 120 --retry 1 --retry-delay 5 --write-out "%{http_code}" --output /tmp/predict_response.json -H "Content-Type: application/json" -X POST "$url" -d "$payload" || echo "000")
-            echo "HTTP status: $http_code"
-            head -c 1000 /tmp/predict_response.json || true
-            echo
-            if [ "$http_code" -lt 400 ] && [ "$http_code" -ne 000 ]; then
-              echo "Warmup succeeded via $url"
-              exit 0
-            fi
-          done
-          echo "Warmup failed for all predict endpoints."
-          exit 1
+          python - <<'PY'
+import os
+import sys
+from gradio_client import Client
+
+space_url = os.environ["SPACE_URL"].rstrip("/")
+print(f"Connecting to {space_url}")
+
+try:
+    client = Client(space_url)
+    result = client.predict("/predict", message="warmup ping")
+    print("Warmup response:", result)
+except Exception as e:
+    print(f"Warmup failed: {e}")
+    sys.exit(1)
+PY
