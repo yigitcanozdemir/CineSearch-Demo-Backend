@@ -28,3 +28,21 @@ jobs:
             echo "Ping failed or returned an error code."
             exit 1
           fi
+
+      - name: Warm predict endpoint
+        run: |
+          payload='{"data":["warmup ping"]}'
+          urls=("$SPACE_URL/run/predict" "$SPACE_URL/api/predict/")
+          for url in "${urls[@]}"; do
+            echo "Trying $url"
+            http_code=$(curl -sS -L --max-time 120 --retry 1 --retry-delay 5 --write-out "%{http_code}" --output /tmp/predict_response.json -H "Content-Type: application/json" -X POST "$url" -d "$payload" || echo "000")
+            echo "HTTP status: $http_code"
+            head -c 1000 /tmp/predict_response.json || true
+            echo
+            if [ "$http_code" -lt 400 ] && [ "$http_code" -ne 000 ]; then
+              echo "Warmup succeeded via $url"
+              exit 0
+            fi
+          done
+          echo "Warmup failed for all predict endpoints."
+          exit 1
