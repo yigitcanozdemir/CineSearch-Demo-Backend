@@ -37,18 +37,18 @@ jobs:
       - name: Warm predict endpoint
         run: |
           python - <<'PY'
-import os
-import sys
-from gradio_client import Client
+          import os
+          import sys
+          from gradio_client import Client
 
-space_url = os.environ["SPACE_URL"].rstrip("/")
-print(f"Connecting to {space_url}")
+          space_url = os.environ["SPACE_URL"].rstrip("/")
+          print(f"Connecting to {space_url}")
 
-try:
-    client = Client(space_url)
-    result = client.predict("/predict", message="warmup ping")
-    print("Warmup response:", result)
-except Exception as e:
-    print(f"Warmup failed: {e}")
-    sys.exit(1)
-PY
+          try:
+              client = Client(space_url)
+              result = client.predict("/predict", message="warmup ping")
+              print("Warmup response:", result)
+          except Exception as e:
+              print(f"Warmup failed: {e}")
+              sys.exit(1)
+          PY
