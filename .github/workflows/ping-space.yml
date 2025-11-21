@@ -46,7 +46,7 @@ jobs:
 
           try:
               client = Client(space_url)
-              result = client.predict("/predict", message="warmup ping")
+              result = client.predict("/predict", "warmup ping")
               print("Warmup response:", result)
           except Exception as e:
               print(f"Warmup failed: {e}")
